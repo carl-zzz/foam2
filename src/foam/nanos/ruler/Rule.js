@@ -10,13 +10,25 @@
 
   documentation: 'Rule model represents rules(actions) that need to be applied in case passed object satisfies provided predicate.',
 
+  implements: [
+    'foam.nanos.auth.CreatedAware',
+    'foam.nanos.auth.CreatedByAware',
+    'foam.nanos.auth.LastModifiedAware',
+    'foam.nanos.auth.LastModifiedByAware'
+  ],
+
+  imports: [
+    'userDAO'
+  ],
+
   javaImports: [
     'foam.core.ContextAware',
     'foam.core.FObject',
     'foam.core.X',
     'foam.core.DirectAgency',
     'foam.nanos.logger.Logger',
-    'java.util.Collection'
+    'java.util.Collection',
+    'foam.nanos.ruler.RuleGroup'
   ],
 
   tableColumns: [
@@ -25,7 +37,9 @@
     'enabled',
     'priority',
     'daoKey',
-    'documentation'
+    'documentation',
+    'createdBy',
+    'lastModifiedBy'
   ],
 
   searchColumns: [
@@ -54,7 +68,7 @@
     {
       class: 'String',
       name: 'id',
-      visibility: 'RO',
+      updateMode: 'RO',
       tableWidth: 200,
       section: 'basicInfo'
     },
@@ -67,15 +81,6 @@
       readPermissionRequired: true,
       writePermissionRequired: true,
       tableWidth: 50,
-      section: 'basicInfo'
-    },
-    {
-      class: 'String',
-      name: 'ruleGroup',
-      documentation: 'ruleGroup defines sets of rules related to the same action.',
-      readPermissionRequired: true,
-      writePermissionRequired: true,
-      tableWidth: 100,
       section: 'basicInfo'
     },
     {
@@ -99,6 +104,7 @@
         var E = foam.mlang.Expressions.create();
         return {
           class: 'foam.u2.view.RichChoiceView',
+          search: true,
           sections: [
             {
               heading: 'Services',
@@ -126,11 +132,8 @@
       'E.g. on dao.put: before object was stored in a dao or after.'
     },
     {
-      class: 'FObjectProperty',
-      of: 'foam.mlang.predicate.Predicate',
+      class: 'foam.mlang.predicate.PredicateProperty',
       name: 'predicate',
-      // TODO make a friendlier view.
-      view: { class: 'foam.u2.view.JSONTextView' },
       javaFactory: `
       return foam.mlang.MLang.TRUE;
       `,
@@ -201,6 +204,46 @@
         }
         return null;
       `
+    },
+    {
+      class: 'DateTime',
+      name: 'created',
+      createMode: 'HIDDEN',
+      updateMode: 'RO'
+    },
+    {
+      class: 'Reference',
+      of: 'foam.nanos.auth.User',
+      name: 'createdBy',
+      createMode: 'HIDDEN',
+      updateMode: 'RO',
+      tableCellFormatter: function(value, obj) {
+        obj.userDAO.find(value).then(function(user) {
+          if ( user ) {
+            this.add(user.legalName);
+          }
+        }.bind(this));
+      }
+    },
+    {
+      class: 'DateTime',
+      name: 'lastModified',
+      createMode: 'HIDDEN',
+      updateMode: 'RO'
+    },
+    {
+      class: 'Reference',
+      of: 'foam.nanos.auth.User',
+      name: 'lastModifiedBy',
+      createMode: 'HIDDEN',
+      updateMode: 'RO',
+      tableCellFormatter: function(value, obj) {
+        obj.userDAO.find(value).then(function(user) {
+          if ( user ) {
+            this.add(user.legalName);
+          }
+        }.bind(this));
+      }
     }
   ],
 
@@ -232,9 +275,8 @@
           try {
             return getPredicate().f(obj);
           } catch ( Throwable th ) { }
-
-          ((Logger) x.get("logger")).error(
-            "Failed to evaluate predicate of rule: " + getId(), t);
+          // ((Logger) x.get("logger")).debug(this.getClass().getSimpleName(), "id", getId(), "\\nrule", this, "\\nobj", obj, "\\nold", oldObj, "\\n", t);
+          ((Logger) x.get("logger")).error("Failed to evaluate predicate of rule: " + getId(), t);
           return false;
         }
       `
@@ -259,12 +301,16 @@
           type: 'foam.nanos.ruler.RuleEngine'
         },
         {
+          name: 'rule',
+          type: 'foam.nanos.ruler.Rule'
+        },
+        {
           name: 'agency',
           type: 'foam.core.Agency'
         }
       ],
       javaCode: `
-        getAction().applyAction(x, obj, oldObj, ruler, agency);
+        getAction().applyAction(x, obj, oldObj, ruler, rule, agency);
       `
     },
     {
@@ -285,10 +331,14 @@
         {
           name: 'ruler',
           type: 'foam.nanos.ruler.RuleEngine'
-        }
+        },
+        {
+          name: 'rule',
+          type: 'foam.nanos.ruler.Rule'
+        },
       ],
       javaCode: `
-        getAsyncAction().applyAction(x, obj, oldObj, ruler, new DirectAgency());
+        getAsyncAction().applyAction(x, obj, oldObj, ruler, rule, new DirectAgency());
         if ( ! getAfter() ) {
           ruler.getDelegate().cmd_(x.put("OBJ", obj), getCmd());
         }

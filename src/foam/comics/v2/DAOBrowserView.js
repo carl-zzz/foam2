@@ -15,7 +15,7 @@ foam.CLASS({
     'foam.u2.dialog.Popup',
     'foam.u2.layout.Cols',
     'foam.u2.layout.Rows',
-    'foam.u2.search.Toolbar',
+    'foam.u2.filter.FilterSearch',
     'foam.u2.view.ScrollTableView',
     'foam.u2.view.SimpleSearch',
     'foam.u2.view.TabChoiceView',
@@ -86,10 +86,12 @@ foam.CLASS({
   imports: [
     'stack?'
   ],
+
   exports: [
     'dblclick',
     'filteredTableColumns'
   ],
+
   properties: [
     {
       class: 'StringArray',
@@ -152,6 +154,13 @@ foam.CLASS({
       expression: function(config, cannedPredicate, searchPredicate) {
         return config.dao$proxy.where(this.AND(cannedPredicate, searchPredicate));
       }
+    },
+    {
+      class: 'foam.dao.DAOProperty',
+      name: 'searchFilterDAO',
+      expression: function(config, cannedPredicate) {
+        return config.dao$proxy.where(cannedPredicate);
+      }
     }
   ],
   actions: [
@@ -168,6 +177,12 @@ foam.CLASS({
     }
   ],
   methods: [
+    function init() {
+      // Reset the search filters when a different canned query is selected
+      this.onDetach(this.cannedPredicate$.sub(() => {
+        this.searchPredicate = foam.mlang.predicate.True.create();
+      }));
+    },
     function dblclick(obj) {
       if ( ! this.stack ) return;
       this.stack.push({
@@ -182,7 +197,7 @@ foam.CLASS({
       this.addClass(this.myClass());
       this.SUPER();
       this
-        .add(this.slot(function(data, config$cannedQueries, config$defaultColumns) {
+        .add(this.slot(function(data, config$cannedQueries, config$defaultColumns, searchFilterDAO) {
           return self.E()
             .start(self.Rows)
               .callIf(config$cannedQueries.length >= 1, function() {
@@ -193,7 +208,7 @@ foam.CLASS({
                       .callIf(config$cannedQueries.length > 1, function() {
                         this
                           .start(self.cannedQueriesView, {
-                            choices: config$cannedQueries.map(o => [o.predicate, o.label]),
+                            choices: config$cannedQueries.map((o) => [o.predicate, o.label]),
                             data$: self.cannedPredicate$
                           })
                             .addClass(self.myClass('canned-queries'))
@@ -204,7 +219,7 @@ foam.CLASS({
               })
               .start(self.Cols).addClass(self.myClass('query-bar'))
                 .startContext({
-                  dao: self.config.dao,
+                  dao: searchFilterDAO,
                   controllerMode: foam.u2.ControllerMode.EDIT
                 })
                   .callIf(self.config.searchMode === self.SearchMode.SIMPLE, function() {
@@ -213,8 +228,13 @@ foam.CLASS({
                       data$: self.searchPredicate$
                     });
                   })
+                  .callIf(self.config.searchMode === self.SearchMode.FULL, function() {
+                    this.tag(self.FilterSearch, {
+                      data$: self.searchPredicate$
+                    });
+                  })
                 .endContext()
-                .startContext({data: self})
+                .startContext({ data: self })
                   .start(self.EXPORT, {
                     buttonStyle: foam.u2.ButtonStyle.SECONDARY
                   })

@@ -20,24 +20,31 @@ foam.CLASS({
     {
       class: 'String',
       name: 'clsName',
-      label: 'Class'
+      label: 'Class',
+      tableWidth: 170,
+      tableCellFormatter: function(cls) {
+        // strip out common prefixes to make easier to read in TableView
+        this.add(cls.replace(/foam\./,'').replace(/dao\.|http\.|pool\.|boot\.|ruler\.|script\./,'').replace(/ThreadPoolAgency\$/,'').replace(/nanos\./,''));
+      }
     },
     {
       class: 'String',
       name: 'name',
+      tableWidth: 300
     },
     {
       class: 'Int',
       name: 'count',
-      label: 'Count'
+      label: 'Count',
+      tableWidth: 60
     },
     {
-      class: 'Long',
+      class: 'Duration',
       name: 'minTime',
       label: 'Min'
     },
     {
-      class: 'Long',
+      class: 'Duration',
       name: 'average',
       label: 'Avg',
       getter: function() { return (this.totalTime / this.count).toFixed(2); },
@@ -45,7 +52,7 @@ foam.CLASS({
       transient: true
     },
     {
-      class: 'Long',
+      class: 'Duration',
       name: 'maxTime',
       label: 'Max'
     },
@@ -60,12 +67,10 @@ foam.CLASS({
       name: 'capture'
     },
     {
-      class: 'String',
+      class: 'Code',
       name: 'captureTrace',
-      view: { class: 'io.c9.ace.Editor' },
-      permissionRequired: true
+      readPermissionRequired: true,
+      writePermissionRequired: true
     }
-  ],
-
-  
+  ]
 });

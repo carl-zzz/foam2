@@ -8,7 +8,10 @@ foam.CLASS({
   package: 'foam.nanos.script',
   name: 'Script',
 
-  implements: ['foam.nanos.auth.EnabledAware'],
+  implements: [
+    'foam.nanos.auth.EnabledAware',
+    'foam.nanos.auth.LastModifiedByAware'
+  ],
 
   requires: [
     'foam.nanos.script.ScriptStatus',
@@ -83,14 +86,16 @@ foam.CLASS({
       class: 'DateTime',
       name: 'lastRun',
       documentation: 'Date and time the script ran last.',
-      visibility: 'RO',
+      createMode: 'HIDDEN',
+      updateMode: 'RO',
       tableWidth: 140
     },
     {
       class: 'Duration',
       name: 'lastDuration',
       documentation: 'Date and time the script took to complete.',
-      visibility: 'RO',
+      createMode: 'HIDDEN',
+      updateMode: 'RO',
       tableWidth: 125
     },
     /*
@@ -115,7 +120,8 @@ foam.CLASS({
       of: 'foam.nanos.script.ScriptStatus',
       name: 'status',
       documentation: 'Status of script.',
-      visibility: 'RO',
+      createMode: 'HIDDEN',
+      updateMode: 'RO',
       value: 'UNSCHEDULED',
       javaValue: 'ScriptStatus.UNSCHEDULED',
       tableWidth: 100,
@@ -154,6 +160,12 @@ foam.CLASS({
       class: 'String',
       name: 'notes',
       view: { class: 'foam.u2.tag.TextArea', rows: 4, cols: 144 }
+    },
+    {
+      class: 'Reference',
+      of: 'foam.nanos.auth.User',
+      name: 'lastModifiedBy',
+      documentation: 'User who last modified script'
     }
   ],
 

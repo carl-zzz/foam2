@@ -8,7 +8,7 @@ foam.CLASS({
   package: 'foam.comics.v2',
   name: 'DAOCreateView',
   extends: 'foam.u2.View',
-
+  
   topics: [
     'finished',
     'throwError'
@@ -81,8 +81,18 @@ foam.CLASS({
   actions: [
     {
       name: 'save',
+      isEnabled: function(data$errors_) {
+        return ! data$errors_;
+      },
       code: function() {
-        this.config.dao.put(this.data).then((o) => {
+        var cData = this.data;
+
+        if ( foam.nanos.auth.LifecycleAware.isInstance(cData) ) {
+          cData = cData.clone();
+          cData.lifecycleState = foam.nanos.auth.LifecycleState.PENDING;
+        }
+        
+        this.config.dao.put(cData).then((o) => {
           this.data = o;
           this.finished.pub();
           this.stack.back();
@@ -102,7 +112,7 @@ foam.CLASS({
       this.SUPER();
       this
         .addClass(this.myClass())
-        .add(self.slot(function(config$viewBorder, config$browseTitle) {
+        .add(self.slot(function(config$viewBorder) {
           return self.E()
             .start(self.Rows)
               .start(self.Rows)
@@ -115,8 +125,8 @@ foam.CLASS({
                 .endContext()
                 .start(self.Cols).style({ 'align-items': 'center' })
                   .start()
-                    .add(`Create your ${config$browseTitle}`)
-                      .addClass(this.myClass('account-name'))
+                    .add(self.slot('config$createTitle'))
+                    .addClass(this.myClass('account-name'))
                   .end()
                   .startContext({ data: self }).add(self.SAVE).endContext()
                 .end()

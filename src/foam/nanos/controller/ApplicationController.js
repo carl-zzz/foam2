@@ -36,9 +36,7 @@ foam.CLASS({
     'foam.nanos.client.ClientBuilder',
     'foam.nanos.auth.Group',
     'foam.nanos.auth.ResendVerificationEmail',
-    'foam.nanos.auth.SignInView',
     'foam.nanos.auth.User',
-    'foam.nanos.auth.resetPassword.ResetView',
     'foam.nanos.theme.Theme',
     'foam.nanos.u2.navigation.TopNavigation',
     'foam.nanos.u2.navigation.FooterView',
@@ -57,6 +55,7 @@ foam.CLASS({
 
   exports: [
     'displayWidth',
+    'agent',
     'appConfig',
     'as ctrl',
     'currentMenu',
@@ -70,6 +69,7 @@ foam.CLASS({
     'pushMenu',
     'requestLogin',
     'signUpEnabled',
+    'loginVariables',
     'stack',
     'user',
     'webApp',
@@ -79,6 +79,7 @@ foam.CLASS({
 
   constants: {
     MACROS: [
+      'logoBackgroundColour',
       'customCSS',
       'primary1',
       'primary2',
@@ -139,6 +140,17 @@ foam.CLASS({
 
   properties: [
     {
+      name: 'loginVariables',
+      expression: function(client$userDAO) {
+        return {
+          dao_: client$userDAO || null,
+          imgPath: '',
+          group: 'system',
+          countryChoices_: [] // empty defaults to entire countryDAO
+        };
+      }
+    },
+    {
       class: 'Enum',
       of: 'foam.u2.layout.DisplayWidth',
       name: 'displayWidth',
@@ -175,6 +187,12 @@ foam.CLASS({
     },
     {
       class: 'foam.core.FObjectProperty',
+      of: 'foam.nanos.auth.User',
+      name: 'agent',
+      factory: function() { return this.User.create(); }
+    },
+    {
+      class: 'foam.core.FObjectProperty',
       of: 'foam.nanos.auth.Group',
       name: 'group'
     },
@@ -202,11 +220,23 @@ foam.CLASS({
       of: 'foam.nanos.theme.Theme',
       name: 'theme'
     },
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'topNavigation_',
+      factory: function() {
+        return this.TopNavigation;
+      }
+    },
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'footerView_',
+      factory: function() {
+        return this.FooterView;
+      }
+    },
     'currentMenu',
     'lastMenuLaunched',
-    'webApp',
-    'topNavigation_',
-    'footerView_'
+    'webApp'
   ],
 
   methods: [
@@ -254,8 +284,8 @@ foam.CLASS({
         this.fetchTheme().then(() => {
           this
             .addClass(this.myClass())
-            .start('div', null, this.topNavigation_$)
-              .tag(this.TopNavigation)
+            .start()
+              .tag(this.topNavigation_)
             .end()
             .start()
               .addClass('stack-wrapper')
@@ -265,8 +295,8 @@ foam.CLASS({
                 showActions: false
               })
             .end()
-            .start('div', null, this.footerView_$)
-              .tag(this.FooterView)
+            .start()
+              .tag(this.footerView_)
             .end();
           });
       });
@@ -366,13 +396,13 @@ foam.CLASS({
       // don't go to log in screen if going to reset password screen
       if ( location.hash != null && location.hash === '#reset' ) {
         return new Promise(function(resolve, reject) {
-          self.stack.push({ class: 'foam.nanos.auth.resetPassword.ResetView' });
+          self.stack.push({ class: 'foam.nanos.auth.ChangePasswordView' });
           self.loginSuccess$.sub(resolve);
         });
       }
 
       return new Promise(function(resolve, reject) {
-        self.stack.push({ class: 'foam.nanos.auth.SignInView' });
+        self.stack.push({ class: 'foam.u2.view.LoginView', mode_: 'SignIn' }, self);
         self.loginSuccess$.sub(resolve);
       });
     },
@@ -435,6 +465,8 @@ foam.CLASS({
        * Get the most appropriate Theme object from the server and use it to
        * customize the look and feel of the application.
        */
+      var lastTheme = this.theme;
+
       try {
         if ( this.user && this.user.personalTheme ) {
           // If the user has a personal theme, use that.
@@ -467,21 +499,19 @@ foam.CLASS({
         return;
       }
 
-      this.useCustomElements();
+      if ( ! lastTheme || lastTheme.id != this.theme.id ) this.useCustomElements();
     },
 
     function useCustomElements() {
       /** Use custom elements if supplied by the Theme. */
       if ( ! this.theme ) throw new Error(this.LOOK_AND_FEEL_NOT_FOUND);
 
-      if ( this.theme.topNavigation && this.topNavigation_ ) {
-        this.topNavigation_.removeAllChildren();
-        this.topNavigation_.tag({ class: this.theme.topNavigation });
+      if ( this.theme.topNavigation ) {
+        this.topNavigation_ = this.theme.topNavigation;
       }
 
-      if ( this.theme.footerView && this.footerView_ ) {
-        this.footerView_.removeAllChildren();
-        this.footerView_.tag({ class: this.theme.footerView });
+      if ( this.theme.footerView ) {
+        this.footerView_ = this.theme.footerView;
       }
     },
     {
@@ -494,6 +524,6 @@ foam.CLASS({
           .sort((a, b) => b.minWidth - a.minWidth)
           .find(o => o.minWidth <= window.innerWidth);
       }
-    } 
+    }
   ]
 });
